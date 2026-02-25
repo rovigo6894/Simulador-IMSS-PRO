@@ -230,7 +230,7 @@ with tab2:
             
             st.caption(f"ROI: {res['roi']}% | Nuevo salario promedio: ${res['nuevo_promedio']:,.2f}")
 
-# ========== PESTAÑA 3: COMPARATIVA CORREGIDA ==========
+# ========== PESTAÑA 3: COMPARATIVA CON GRÁFICA ORDENADA ==========
 with tab3:
     st.subheader("Comparativa de escenarios Modalidad 40")
     
@@ -252,17 +252,14 @@ with tab3:
             base = calcular_pension(semanas_comp, salario_comp, edad_comp, edad_retiro3, esposa3)
             pension_base = base['mensual']
             
+            # ORDEN CORRECTO: 6 meses primero
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
-            incrementos = []
-            inversiones = []
             
             for meses in meses_lista:
                 r = calcular_mod40(semanas_comp, salario_comp, edad_comp, edad_retiro3, salario_tope, meses, esposa3)
                 pensiones_con_m40.append(r['con_m40'])
-                incrementos.append(r['incremento'])
-                inversiones.append(r['inversion'])
                 resultados.append({
                     "Meses": f"{meses}",
                     "Pensión Base": f"${pension_base:,.0f}",
@@ -278,22 +275,15 @@ with tab3:
             df = pd.DataFrame(resultados)
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # GRÁFICA SIMPLE CON VALORES REALES
+            # GRÁFICA CON MESES EN ORDEN
             st.subheader("📊 Pensión mensual por escenario")
             
-            # Mostrar los valores para debug (opcional, puede borrarlo después)
-            with st.expander("📊 Ver valores de la gráfica"):
-                for i, m in enumerate(meses_lista):
-                    st.write(f"{m} meses: Base=${pension_base:,.0f}, Con M40=${pensiones_con_m40[i]:,.0f}")
-            
-            # Crear DataFrame para la gráfica
             chart_df = pd.DataFrame({
                 "Meses": [str(m) for m in meses_lista],
                 "Sin M40": [pension_base] * len(meses_lista),
                 "Con M40": pensiones_con_m40
             })
             
-            # Gráfica de barras
             st.bar_chart(chart_df.set_index("Meses"))
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
