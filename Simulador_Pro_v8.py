@@ -186,7 +186,7 @@ with tab2:
         edad_retiro2 = st.selectbox("Edad de retiro", [60,61,62,63,64,65], index=0, key="retiro2")
         esposa2 = st.checkbox("¿Con asignación por esposa?", value=True, key="esposa2")
         salario_m40 = st.number_input("Salario a cotizar en M40 ($)", min_value=0.0, max_value=20000.0, value=2932.0, step=100.0, key="sal_m40")
-        meses_m40 = st.selectbox("Meses en M40", [6,12,18,24,30,36,42,48], index=3, key="meses")
+        meses_m40 = st.selectbox("Meses en M40", [6,12,18,24,30,36,42,48], index=0, key="meses")
     
     if st.button("Calcular Modalidad 40", type="primary", use_container_width=True, key="btn2"):
         with st.spinner("Analizando..."):
@@ -252,7 +252,7 @@ with tab3:
             base = calcular_pension(semanas_comp, salario_comp, edad_comp, edad_retiro3, esposa3)
             pension_base = base['mensual']
             
-            # ORDEN CORRECTO: 6 meses primero
+            # ORDEN EXPLÍCITO
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
@@ -261,30 +261,47 @@ with tab3:
                 r = calcular_mod40(semanas_comp, salario_comp, edad_comp, edad_retiro3, salario_tope, meses, esposa3)
                 pensiones_con_m40.append(r['con_m40'])
                 resultados.append({
-                    "Meses": f"{meses}",
-                    "Pensión Base": f"${pension_base:,.0f}",
-                    "Pensión con M40": f"${r['con_m40']:,.0f}",
-                    "Incremento": f"${r['incremento']:,.0f}",
-                    "Inversión": f"${r['inversion']:,.0f}",
-                    "Recuperación": f"{r['recuperacion_meses']:.0f} meses",
-                    "Utilidad 20a": f"${r['utilidad_20']:,.0f}",
-                    "ROI": f"{r['roi']}%"
+                    "Meses": meses,
+                    "Pensión Base": pension_base,
+                    "Pensión con M40": r['con_m40'],
+                    "Incremento": r['incremento'],
+                    "Inversión": r['inversion'],
+                    "Recuperación": r['recuperacion_meses'],
+                    "Utilidad 20a": r['utilidad_20'],
+                    "ROI": r['roi']
                 })
             
             st.divider()
-            df = pd.DataFrame(resultados)
-            st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # GRÁFICA CON MESES EN ORDEN
+            # Mostrar tabla formateada
+            df_show = pd.DataFrame(resultados)
+            df_show["Meses"] = df_show["Meses"].astype(str) + " meses"
+            df_show["Pensión Base"] = df_show["Pensión Base"].apply(lambda x: f"${x:,.0f}")
+            df_show["Pensión con M40"] = df_show["Pensión con M40"].apply(lambda x: f"${x:,.0f}")
+            df_show["Incremento"] = df_show["Incremento"].apply(lambda x: f"${x:,.0f}")
+            df_show["Inversión"] = df_show["Inversión"].apply(lambda x: f"${x:,.0f}")
+            df_show["Recuperación"] = df_show["Recuperación"].apply(lambda x: f"{x:.0f} meses")
+            df_show["Utilidad 20a"] = df_show["Utilidad 20a"].apply(lambda x: f"${x:,.0f}")
+            df_show["ROI"] = df_show["ROI"].apply(lambda x: f"{x:.0f}%")
+            
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
+            
+            # GRÁFICA CON ORDEN FORZADO
             st.subheader("📊 Pensión mensual por escenario")
             
+            # Creamos DataFrame con columnas en orden explícito
             chart_df = pd.DataFrame({
-                "Meses": [str(m) for m in meses_lista],
-                "Sin M40": [pension_base] * len(meses_lista),
-                "Con M40": pensiones_con_m40
-            })
+                "6 meses": [pension_base, pensiones_con_m40[0]],
+                "12 meses": [pension_base, pensiones_con_m40[1]],
+                "18 meses": [pension_base, pensiones_con_m40[2]],
+                "24 meses": [pension_base, pensiones_con_m40[3]],
+                "30 meses": [pension_base, pensiones_con_m40[4]],
+                "36 meses": [pension_base, pensiones_con_m40[5]],
+                "42 meses": [pension_base, pensiones_con_m40[6]],
+                "48 meses": [pension_base, pensiones_con_m40[7]]
+            }, index=["Sin M40", "Con M40"])
             
-            st.bar_chart(chart_df.set_index("Meses"))
+            st.bar_chart(chart_df.T)
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
 
