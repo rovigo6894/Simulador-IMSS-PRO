@@ -1,4 +1,4 @@
 streamlit
 pandas
 numpy
-plotly
+potly.graph_objects as go
