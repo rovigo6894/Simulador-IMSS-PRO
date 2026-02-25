@@ -252,7 +252,6 @@ with tab3:
             base = calcular_pension(semanas_comp, salario_comp, edad_comp, edad_retiro3, esposa3)
             pension_base = base['mensual']
             
-            # ORDEN EXPLÍCITO
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
@@ -286,22 +285,16 @@ with tab3:
             
             st.dataframe(df_show, use_container_width=True, hide_index=True)
             
-            # GRÁFICA CON ORDEN FORZADO
+            # GRÁFICA CON ÍNDICE NUMÉRICO
             st.subheader("📊 Pensión mensual por escenario")
             
-            # Creamos DataFrame con columnas en orden explícito
+            # Usamos números puros como índice para forzar orden
             chart_df = pd.DataFrame({
-                "6 meses": [pension_base, pensiones_con_m40[0]],
-                "12 meses": [pension_base, pensiones_con_m40[1]],
-                "18 meses": [pension_base, pensiones_con_m40[2]],
-                "24 meses": [pension_base, pensiones_con_m40[3]],
-                "30 meses": [pension_base, pensiones_con_m40[4]],
-                "36 meses": [pension_base, pensiones_con_m40[5]],
-                "42 meses": [pension_base, pensiones_con_m40[6]],
-                "48 meses": [pension_base, pensiones_con_m40[7]]
-            }, index=["Sin M40", "Con M40"])
+                "Pensión Base": [pension_base] * len(meses_lista),
+                "Pensión con M40": pensiones_con_m40
+            }, index=meses_lista)
             
-            st.bar_chart(chart_df.T)
+            st.bar_chart(chart_df)
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
 
