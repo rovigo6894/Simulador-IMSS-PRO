@@ -230,7 +230,7 @@ with tab2:
             
             st.caption(f"ROI: {res['roi']}% | Nuevo salario promedio: ${res['nuevo_promedio']:,.2f}")
 
-# ========== PESTAÑA 3: COMPARATIVA (SIN PLOTLY) ==========
+# ========== PESTAÑA 3: COMPARATIVA CORREGIDA ==========
 with tab3:
     st.subheader("Comparativa de escenarios Modalidad 40")
     
@@ -255,10 +255,14 @@ with tab3:
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
+            incrementos = []
+            inversiones = []
             
             for meses in meses_lista:
                 r = calcular_mod40(semanas_comp, salario_comp, edad_comp, edad_retiro3, salario_tope, meses, esposa3)
                 pensiones_con_m40.append(r['con_m40'])
+                incrementos.append(r['incremento'])
+                inversiones.append(r['inversion'])
                 resultados.append({
                     "Meses": f"{meses}",
                     "Pensión Base": f"${pension_base:,.0f}",
@@ -274,15 +278,28 @@ with tab3:
             df = pd.DataFrame(resultados)
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # Gráfica con st.bar_chart (nativo de Streamlit, sin plotly)
-            st.subheader("📊 Pensión por escenario")
+            # GRÁFICA CORREGIDA
+            st.subheader("📊 Pensión mensual por escenario")
+            
             chart_data = pd.DataFrame({
                 "Meses": [f"{m}" for m in meses_lista],
-                "Sin M40": [pension_base] * len(meses_lista),
-                "Con M40": pensiones_con_m40
+                "Pensión Base": [pension_base] * len(meses_lista),
+                "Pensión con M40": pensiones_con_m40
             })
-            st.bar_chart(chart_data, x="Meses", y=["Sin M40", "Con M40"], color=["#999999", "#0066b3"])
+            
+            st.bar_chart(chart_data, x="Meses", y=["Pensión Base", "Pensión con M40"], 
+                        color=["#999999", "#0066b3"])
+            
+            st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
+            
+            with st.expander("📈 Ver detalle de incrementos"):
+                inc_data = pd.DataFrame({
+                    "Meses": [f"{m}" for m in meses_lista],
+                    "Incremento": [f"${i:,.0f}" for i in incrementos],
+                    "Inversión": [f"${inv:,.0f}" for inv in inversiones]
+                })
+                st.dataframe(inc_data, use_container_width=True, hide_index=True)
 
 # ========== PIE ==========
 st.divider()
-st.caption("© Ing. Roberto Villarreal - Versión Profesional")
+st.caption("© Ing. Roberto Villarreal - Versión Profesional con análisis completo")
