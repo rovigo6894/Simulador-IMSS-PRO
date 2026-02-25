@@ -278,27 +278,25 @@ with tab3:
             df = pd.DataFrame(resultados)
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # GRÁFICA CORREGIDA
+            # GRÁFICA SIMPLE CON VALORES REALES
             st.subheader("📊 Pensión mensual por escenario")
             
-            chart_data = pd.DataFrame({
-                "Meses": [f"{m}" for m in meses_lista],
-                "Pensión Base": [pension_base] * len(meses_lista),
-                "Pensión con M40": pensiones_con_m40
+            # Mostrar los valores para debug (opcional, puede borrarlo después)
+            with st.expander("📊 Ver valores de la gráfica"):
+                for i, m in enumerate(meses_lista):
+                    st.write(f"{m} meses: Base=${pension_base:,.0f}, Con M40=${pensiones_con_m40[i]:,.0f}")
+            
+            # Crear DataFrame para la gráfica
+            chart_df = pd.DataFrame({
+                "Meses": [str(m) for m in meses_lista],
+                "Sin M40": [pension_base] * len(meses_lista),
+                "Con M40": pensiones_con_m40
             })
             
-            st.bar_chart(chart_data, x="Meses", y=["Pensión Base", "Pensión con M40"], 
-                        color=["#999999", "#0066b3"])
+            # Gráfica de barras
+            st.bar_chart(chart_df.set_index("Meses"))
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
-            
-            with st.expander("📈 Ver detalle de incrementos"):
-                inc_data = pd.DataFrame({
-                    "Meses": [f"{m}" for m in meses_lista],
-                    "Incremento": [f"${i:,.0f}" for i in incrementos],
-                    "Inversión": [f"${inv:,.0f}" for inv in inversiones]
-                })
-                st.dataframe(inc_data, use_container_width=True, hide_index=True)
 
 # ========== PIE ==========
 st.divider()
