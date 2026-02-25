@@ -1,6 +1,8 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Configuración
@@ -230,7 +232,7 @@ with tab2:
             
             st.caption(f"ROI: {res['roi']}% | Nuevo salario promedio: ${res['nuevo_promedio']:,.2f}")
 
-# ========== PESTAÑA 3: COMPARATIVA CON GRÁFICA ORDENADA ==========
+# ========== PESTAÑA 3: COMPARATIVA CON PLOTLY ==========
 with tab3:
     st.subheader("Comparativa de escenarios Modalidad 40")
     
@@ -252,6 +254,7 @@ with tab3:
             base = calcular_pension(semanas_comp, salario_comp, edad_comp, edad_retiro3, esposa3)
             pension_base = base['mensual']
             
+            # ORDEN CORRECTO
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
@@ -260,41 +263,48 @@ with tab3:
                 r = calcular_mod40(semanas_comp, salario_comp, edad_comp, edad_retiro3, salario_tope, meses, esposa3)
                 pensiones_con_m40.append(r['con_m40'])
                 resultados.append({
-                    "Meses": meses,
-                    "Pensión Base": pension_base,
-                    "Pensión con M40": r['con_m40'],
-                    "Incremento": r['incremento'],
-                    "Inversión": r['inversion'],
-                    "Recuperación": r['recuperacion_meses'],
-                    "Utilidad 20a": r['utilidad_20'],
-                    "ROI": r['roi']
+                    "Meses": f"{meses} meses",
+                    "Pensión Base": f"${pension_base:,.0f}",
+                    "Pensión con M40": f"${r['con_m40']:,.0f}",
+                    "Incremento": f"${r['incremento']:,.0f}",
+                    "Inversión": f"${r['inversion']:,.0f}",
+                    "Recuperación": f"{r['recuperacion_meses']:.0f} meses",
+                    "Utilidad 20a": f"${r['utilidad_20']:,.0f}",
+                    "ROI": f"{r['roi']}%"
                 })
             
             st.divider()
+            df = pd.DataFrame(resultados)
+            st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # Mostrar tabla formateada
-            df_show = pd.DataFrame(resultados)
-            df_show["Meses"] = df_show["Meses"].astype(str) + " meses"
-            df_show["Pensión Base"] = df_show["Pensión Base"].apply(lambda x: f"${x:,.0f}")
-            df_show["Pensión con M40"] = df_show["Pensión con M40"].apply(lambda x: f"${x:,.0f}")
-            df_show["Incremento"] = df_show["Incremento"].apply(lambda x: f"${x:,.0f}")
-            df_show["Inversión"] = df_show["Inversión"].apply(lambda x: f"${x:,.0f}")
-            df_show["Recuperación"] = df_show["Recuperación"].apply(lambda x: f"{x:.0f} meses")
-            df_show["Utilidad 20a"] = df_show["Utilidad 20a"].apply(lambda x: f"${x:,.0f}")
-            df_show["ROI"] = df_show["ROI"].apply(lambda x: f"{x:.0f}%")
-            
-            st.dataframe(df_show, use_container_width=True, hide_index=True)
-            
-            # GRÁFICA CON ÍNDICE NUMÉRICO
+            # GRÁFICA CON PLOTLY (ORDEN MANUAL)
             st.subheader("📊 Pensión mensual por escenario")
             
-            # Usamos números puros como índice para forzar orden
-            chart_df = pd.DataFrame({
-                "Pensión Base": [pension_base] * len(meses_lista),
-                "Pensión con M40": pensiones_con_m40
-            }, index=meses_lista)
+            fig = go.Figure(data=[
+                go.Bar(name='Sin M40', 
+                       x=[str(m) for m in meses_lista], 
+                       y=[pension_base] * len(meses_lista),
+                       marker_color='#999999',
+                       text=[f"${pension_base:,.0f}" for _ in meses_lista],
+                       textposition='outside'),
+                go.Bar(name='Con M40', 
+                       x=[str(m) for m in meses_lista], 
+                       y=pensiones_con_m40,
+                       marker_color='#0066b3',
+                       text=[f"${p:,.0f}" for p in pensiones_con_m40],
+                       textposition='outside')
+            ])
             
-            st.bar_chart(chart_df)
+            fig.update_layout(
+                barmode='group',
+                xaxis={'categoryorder':'array', 'categoryarray': [str(m) for m in meses_lista]},
+                xaxis_title="Meses en M40",
+                yaxis_title="Pensión mensual ($)",
+                height=500,
+                yaxis=dict(tickformat="$,.0f")
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
 
