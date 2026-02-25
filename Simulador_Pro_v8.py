@@ -1,16 +1,87 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
+import json
+import os
 
-# Configuración
-st.set_page_config(
-    page_title="IMSS Ley 73 - PRO", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+# ============================================
+# SISTEMA DE LICENCIAS (CÓDIGOS PERSONALIZADOS)
+# ============================================
+
+# IMPORTANTE: Usted genera estos códigos con su script y los pega aquí
+LICENCIAS = {
+    "CLIENTE1-A3F8": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
+    "CLIENTE2-X7K9": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
+    "CLIENTE3-8H4J": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
+    "CLIENTE4-M2B6": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
+    "CLIENTE5-P9Q3": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
+    # Agregue más códigos aquí según los vaya generando
+}
+
+ARCHIVO_USOS = "usos_simulador.json"
+
+def cargar_usos():
+    if os.path.exists(ARCHIVO_USOS):
+        with open(ARCHIVO_USOS, "r") as f:
+            return json.load(f)
+    return {}
+
+def guardar_usos(usos):
+    with open(ARCHIVO_USOS, "w") as f:
+        json.dump(usos, f, indent=2)
+
+def verificar_licencia():
+    if st.session_state.get("licencia_validada", False):
+        return True
+    
+    usos_registrados = cargar_usos()
+    
+    st.sidebar.header("🔐 Acceso PRO")
+    codigo = st.sidebar.text_input("Código de licencia", type="password", key="codigo_licencia")
+    
+    if st.sidebar.button("Activar licencia"):
+        if codigo in LICENCIAS:
+            if not LICENCIAS[codigo]["activa"]:
+                st.sidebar.error("❌ Esta licencia fue desactivada")
+                return False
+            
+            fecha_exp = datetime.strptime(LICENCIAS[codigo]["expira"], "%Y-%m-%d")
+            if datetime.now() > fecha_exp:
+                st.sidebar.error("❌ Licencia expirada")
+                return False
+            
+            usos_actuales = usos_registrados.get(codigo, 0)
+            max_usos = LICENCIAS[codigo]["max_usos"]
+            
+            if usos_actuales >= max_usos:
+                st.sidebar.error(f"❌ Límite de {max_usos} activaciones alcanzado")
+                return False
+            
+            usos_registrados[codigo] = usos_actuales + 1
+            guardar_usos(usos_registrados)
+            
+            st.session_state.licencia_validada = True
+            st.session_state.codigo_usado = codigo
+            st.sidebar.success(f"✅ Activada ({usos_actuales + 1}/{max_usos})")
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Código inválido")
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("💳 [Comprar licencia](https://wa.me/5218715791810)")
+    st.warning("🔒 Versión PRO bloqueada. Ingresa un código válido en la barra lateral.")
+    return False
+
+# ============================================
+# CONFIGURACIÓN INICIAL
+# ============================================
+
+st.set_page_config(page_title="IMSS Ley 73 - PRO", layout="centered")
+
+if not verificar_licencia():
+    st.stop()
 
 # Ocultar menús de Streamlit
 hide_streamlit_style = """
@@ -232,7 +303,7 @@ with tab2:
             
             st.caption(f"ROI: {res['roi']}% | Nuevo salario promedio: ${res['nuevo_promedio']:,.2f}")
 
-# ========== PESTAÑA 3: COMPARATIVA CON PLOTLY ==========
+# ========== PESTAÑA 3: COMPARATIVA CON BARRAS SIDE BY SIDE ==========
 with tab3:
     st.subheader("Comparativa de escenarios Modalidad 40")
     
@@ -254,7 +325,6 @@ with tab3:
             base = calcular_pension(semanas_comp, salario_comp, edad_comp, edad_retiro3, esposa3)
             pension_base = base['mensual']
             
-            # ORDEN CORRECTO
             meses_lista = [6,12,18,24,30,36,42,48]
             resultados = []
             pensiones_con_m40 = []
@@ -263,7 +333,7 @@ with tab3:
                 r = calcular_mod40(semanas_comp, salario_comp, edad_comp, edad_retiro3, salario_tope, meses, esposa3)
                 pensiones_con_m40.append(r['con_m40'])
                 resultados.append({
-                    "Meses": f"{meses} meses",
+                    "Meses": f"{meses}",
                     "Pensión Base": f"${pension_base:,.0f}",
                     "Pensión con M40": f"${r['con_m40']:,.0f}",
                     "Incremento": f"${r['incremento']:,.0f}",
@@ -277,37 +347,48 @@ with tab3:
             df = pd.DataFrame(resultados)
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # GRÁFICA CON PLOTLY (ORDEN MANUAL)
-            st.subheader("📊 Pensión mensual por escenario")
+            # ===== GRÁFICA DE BARRAS SIDE BY SIDE =====
+            st.subheader("📊 Comparativa: Base vs Con M40")
+            
+            chart_df = pd.DataFrame({
+                "Meses": [f"{m} meses" for m in meses_lista],
+                "Base (sin M40)": [pension_base] * len(meses_lista),
+                "Con M40": pensiones_con_m40
+            })
             
             fig = go.Figure(data=[
-                go.Bar(name='Sin M40', 
-                       x=[str(m) for m in meses_lista], 
-                       y=[pension_base] * len(meses_lista),
-                       marker_color='#999999',
-                       text=[f"${pension_base:,.0f}" for _ in meses_lista],
-                       textposition='outside'),
-                go.Bar(name='Con M40', 
-                       x=[str(m) for m in meses_lista], 
-                       y=pensiones_con_m40,
-                       marker_color='#0066b3',
-                       text=[f"${p:,.0f}" for p in pensiones_con_m40],
-                       textposition='outside')
+                go.Bar(
+                    name='Base (sin M40)',
+                    x=chart_df["Meses"],
+                    y=chart_df["Base (sin M40)"],
+                    marker_color='#999999',
+                    text=[f"${pension_base:,.0f}" for _ in meses_lista],
+                    textposition='outside'
+                ),
+                go.Bar(
+                    name='Con M40',
+                    x=chart_df["Meses"],
+                    y=chart_df["Con M40"],
+                    marker_color='#0066b3',
+                    text=[f"${p:,.0f}" for p in pensiones_con_m40],
+                    textposition='outside'
+                )
             ])
             
             fig.update_layout(
                 barmode='group',
-                xaxis={'categoryorder':'array', 'categoryarray': [str(m) for m in meses_lista]},
+                title="Pensión mensual con y sin Modalidad 40",
                 xaxis_title="Meses en M40",
                 yaxis_title="Pensión mensual ($)",
+                yaxis_tickformat="$,.0f",
                 height=500,
-                yaxis=dict(tickformat="$,.0f")
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             
             st.plotly_chart(fig, use_container_width=True)
             
             st.info(f"💡 **Pensión base sin M40:** ${pension_base:,.0f} mensuales")
 
-# ========== PIE ==========
+# ========== PIE DE PÁGINA ==========
 st.divider()
-st.caption("© Ing. Roberto Villarreal - Versión Profesional con análisis completo")
+st.caption("© Ing. Roberto Villarreal - Versión Profesional con licencia")
