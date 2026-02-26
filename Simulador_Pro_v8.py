@@ -447,8 +447,47 @@ with st.expander("⚙️ Admin (protegido)"):
     
     password = st.text_input("Contraseña de administrador", type="password")
     
-    if password == "Villarreal2026":
+    CONTRASENA_ADMIN = "Zuom6894"  # Cámbiela si quiere
+    
+    if password == CONTRASENA_ADMIN:
         st.success("✅ Acceso concedido")
-        st.write("Aquí aparecerá el botón de descarga")
+        
+        col_a1, col_a2 = st.columns(2)
+        
+        with col_a1:
+            st.markdown("**📊 Estado actual:**")
+            # Verificar si existe el archivo de licencias
+            if 'ARCHIVO_LICENCIAS' in dir() and os.path.exists(ARCHIVO_LICENCIAS):
+                with open(ARCHIVO_LICENCIAS, "r") as f:
+                    datos = json.load(f)
+                st.info(f"📁 Licencias registradas: {len(datos)}")
+                
+                # Botón de descarga
+                with open(ARCHIVO_LICENCIAS, "rb") as f:
+                    from datetime import datetime
+                    st.download_button(
+                        label="📥 Descargar licencias.json",
+                        data=f,
+                        file_name=f"licencias_{datetime.now().strftime('%Y%m%d')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+            else:
+                st.warning("⚠️ No hay archivo de licencias aún")
+        
+        with col_a2:
+            st.markdown("**📝 Últimas activaciones:**")
+            if 'ARCHIVO_LICENCIAS' in dir() and os.path.exists(ARCHIVO_LICENCIAS):
+                with open(ARCHIVO_LICENCIAS, "r") as f:
+                    datos = json.load(f)
+                if datos:
+                    # Mostrar las últimas 5
+                    items = list(datos.items())[-5:]
+                    for codigo, maquinas in items:
+                        st.markdown(f"- **{codigo}**: {len(maquinas)} máquina(s)")
+                else:
+                    st.markdown("*Sin datos*")
+            else:
+                st.markdown("*Sin activaciones*")
     elif password != "":
         st.error("❌ Contraseña incorrecta")
