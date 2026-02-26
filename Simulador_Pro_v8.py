@@ -3,69 +3,110 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
-import json
+import hashlib
+import platform
 import os
+import json
 
 # ============================================
-# SISTEMA DE LICENCIAS (CÓDIGOS PERSONALIZADOS)
+# SISTEMA DE LICENCIAS MEJORADO (2 MÁQUINAS)
 # ============================================
 
-# IMPORTANTE: Usted genera estos códigos con su script y los pega aquí
+def get_machine_id():
+    """Genera un identificador único para la máquina"""
+    machine_info = f"{platform.node()}-{platform.processor()}-{os.name}"
+    return hashlib.md5(machine_info.encode()).hexdigest()[:10]
+
+# Base de datos de licencias
 LICENCIAS = {
-    "CLIENTE1-A3F8": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
-    "CLIENTE2-X7K9": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
-    "CLIENTE3-8H4J": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
-    "CLIENTE4-M2B6": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
-    "CLIENTE5-P9Q3": {"expira": "2026-12-31", "activa": True, "max_usos": 2},
-    # Agregue más códigos aquí según los vaya generando
+    "CLIENTE1-A3F8": {
+        "expira": "2026-12-31", 
+        "activa": True, 
+        "max_maquinas": 2,
+        "maquinas_autorizadas": []
+    },
+    "CLIENTE2-X7K9": {
+        "expira": "2026-12-31", 
+        "activa": True, 
+        "max_maquinas": 2,
+        "maquinas_autorizadas": []
+    },
+    "DEMO-CLIENTE": {
+        "expira": "2026-12-31", 
+        "activa": True, 
+        "max_maquinas": 2,
+        "maquinas_autorizadas": []
+    },
 }
 
-ARCHIVO_USOS = "usos_simulador.json"
+ARCHIVO_LICENCIAS = "licencias_activas.json"
 
-def cargar_usos():
-    if os.path.exists(ARCHIVO_USOS):
-        with open(ARCHIVO_USOS, "r") as f:
+def cargar_licencias():
+    """Carga el estado de las licencias desde archivo"""
+    if os.path.exists(ARCHIVO_LICENCIAS):
+        with open(ARCHIVO_LICENCIAS, "r") as f:
             return json.load(f)
     return {}
 
-def guardar_usos(usos):
-    with open(ARCHIVO_USOS, "w") as f:
-        json.dump(usos, f, indent=2)
+def guardar_licencias(estado):
+    """Guarda el estado de las licencias en archivo"""
+    with open(ARCHIVO_LICENCIAS, "w") as f:
+        json.dump(estado, f, indent=2)
 
 def verificar_licencia():
+    """Verifica licencia por máquina"""
+    
     if st.session_state.get("licencia_validada", False):
         return True
     
-    usos_registrados = cargar_usos()
+    machine_id = get_machine_id()
+    estado_licencias = cargar_licencias()
     
     st.sidebar.header("🔐 Acceso PRO")
-    codigo = st.sidebar.text_input("Código de licencia", type="password", key="codigo_licencia")
+    codigo = st.sidebar.text_input("Código de licencia", type="password")
     
     if st.sidebar.button("Activar licencia"):
         if codigo in LICENCIAS:
-            if not LICENCIAS[codigo]["activa"]:
-                st.sidebar.error("❌ Esta licencia fue desactivada")
+            licencia = LICENCIAS[codigo]
+            
+            # Verificar si la licencia está activa
+            if not licencia["activa"]:
+                st.sidebar.error("❌ Licencia desactivada")
                 return False
             
-            fecha_exp = datetime.strptime(LICENCIAS[codigo]["expira"], "%Y-%m-%d")
+            # Verificar fecha de expiración
+            fecha_exp = datetime.strptime(licencia["expira"], "%Y-%m-%d")
             if datetime.now() > fecha_exp:
                 st.sidebar.error("❌ Licencia expirada")
                 return False
             
-            usos_actuales = usos_registrados.get(codigo, 0)
-            max_usos = LICENCIAS[codigo]["max_usos"]
+            # Cargar máquinas autorizadas para este código
+            maquinas = estado_licencias.get(codigo, [])
             
-            if usos_actuales >= max_usos:
-                st.sidebar.error(f"❌ Límite de {max_usos} activaciones alcanzado")
+            # Si la máquina ya está autorizada, acceso directo
+            if machine_id in maquinas:
+                st.session_state.licencia_validada = True
+                st.session_state.codigo_usado = codigo
+                st.sidebar.success("✅ Acceso concedido")
+                st.rerun()
+                return True
+            
+            # Si es una máquina nueva, verificar límite
+            if len(maquinas) < licencia["max_maquinas"]:
+                # Registrar nueva máquina
+                maquinas.append(machine_id)
+                estado_licencias[codigo] = maquinas
+                guardar_licencias(estado_licencias)
+                
+                st.session_state.licencia_validada = True
+                st.session_state.codigo_usado = codigo
+                st.sidebar.success(f"✅ Máquina registrada ({len(maquinas)}/{licencia['max_maquinas']})")
+                st.rerun()
+                return True
+            else:
+                st.sidebar.error(f"❌ Límite de {licencia['max_maquinas']} máquinas alcanzado")
+                st.sidebar.info("💡 Usa el código en las máquinas ya registradas o adquiere otra licencia")
                 return False
-            
-            usos_registrados[codigo] = usos_actuales + 1
-            guardar_usos(usos_registrados)
-            
-            st.session_state.licencia_validada = True
-            st.session_state.codigo_usado = codigo
-            st.sidebar.success(f"✅ Activada ({usos_actuales + 1}/{max_usos})")
-            st.rerun()
         else:
             st.sidebar.error("❌ Código inválido")
     
@@ -303,7 +344,7 @@ with tab2:
             
             st.caption(f"ROI: {res['roi']}% | Nuevo salario promedio: ${res['nuevo_promedio']:,.2f}")
 
-# ========== PESTAÑA 3: COMPARATIVA CON BARRAS SIDE BY SIDE ==========
+# ========== PESTAÑA 3: COMPARATIVA ==========
 with tab3:
     st.subheader("Comparativa de escenarios Modalidad 40")
     
@@ -347,7 +388,7 @@ with tab3:
             df = pd.DataFrame(resultados)
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # ===== GRÁFICA DE BARRAS SIDE BY SIDE =====
+            # Gráfica de barras side by side
             st.subheader("📊 Comparativa: Base vs Con M40")
             
             chart_df = pd.DataFrame({
@@ -391,4 +432,4 @@ with tab3:
 
 # ========== PIE DE PÁGINA ==========
 st.divider()
-st.caption("© Ing. Roberto Villarreal - Versión Profesional con licencia")
+st.caption("© Ing. Roberto Villarreal - Versión Profesional con licencia por máquina")
